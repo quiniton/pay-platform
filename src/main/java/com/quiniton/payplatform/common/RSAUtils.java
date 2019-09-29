@@ -1,9 +1,12 @@
 package com.quiniton.payplatform.common;
 
-import cn.hutool.core.codec.Base64;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import cn.hutool.core.util.StrUtil;
+import org.springframework.util.Base64Utils;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.StringWriter;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -12,166 +15,120 @@ import java.security.spec.X509EncodedKeySpec;
 public class RSAUtils {
 
     public static final String SIGNATURE_ALGORITHM = "SHA256withRSA";
-    public static final String ENCODE_ALGORITHM = "SHA-256";
-    private static final Logger LOGGER = LoggerFactory.getLogger(RSAUtils.class);
+    public static final String ENCODE_ALGORITHM = "SHA1WithRSA";
+    public static final String KEY_ALGORITHM = "RSA";
 
-    /**
-     * 签名
-     *
-     * @param privateKey 私钥
-     * @param plainText  明文
-     * @return
-     */
-    public static byte[] sign(PrivateKey privateKey, String plainText) {
-        MessageDigest messageDigest;
-        byte[] signed = null;
-        try {
-            messageDigest = MessageDigest.getInstance(ENCODE_ALGORITHM);
-            messageDigest.update(plainText.getBytes());
-            byte[] outputDigest_sign = messageDigest.digest();
-            System.out.println("SHA-256加密后-----》" + bytesToHexString(outputDigest_sign));
-            Signature Sign = Signature.getInstance(SIGNATURE_ALGORITHM);
-            Sign.initSign(privateKey);
-            Sign.update(outputDigest_sign);
-            signed = Sign.sign();
-            System.out.println("SHA256withRSA签名后-----》" + bytesToHexString(signed));
-        } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
-            LOGGER.info("SHA-256加密失败:{}", e.getMessage());
+    public static String rsaSign(String content, String privateKey, String charset, String signType) throws Exception {
+        if ("RSA".equals(signType)) {
+            return rsaSign(content, privateKey, charset);
+        } else if ("RSA2".equals(signType)) {
+            return rsa256Sign(content, privateKey, charset);
+        } else {
+            throw new Exception("Sign Type is Not Support : signType=" + signType);
         }
-        return signed;
     }
 
-    /**
-     * 签名
-     *
-     * @param privateKey
-     * @param plainText
-     * @return
-     */
-    public static String sign(String privateKey, String plainText) {
+
+
+    public static String rsa256Sign(String content, String privateKey, String charset) throws Exception {
         try {
-            PrivateKey key = getPrivateKey(privateKey);
-            byte[] bytes = sign(key, plainText);
-            return new String(bytes);
-        } catch (Exception e) {
-            LOGGER.info("SHA-256加密获取private key失败:{}", e.getMessage());
+            PrivateKey priKey = getPrivateKeyFromPKCS8(KEY_ALGORITHM, new ByteArrayInputStream(privateKey.getBytes()));
+            Signature signature = Signature.getInstance(SIGNATURE_ALGORITHM);
+            signature.initSign(priKey);
+            if (StrUtil.isEmpty(charset)) {
+                signature.update(content.getBytes());
+            } else {
+                signature.update(content.getBytes(charset));
+            }
+
+            byte[] signed = signature.sign();
+            return new String(Base64Utils.encode(signed));
+        } catch (Exception var6) {
+            throw new Exception("RSAcontent = " + content + "; charset = " + charset, var6);
         }
-        return "";
     }
 
-    /**
-     * 验签
-     *
-     * @param publicKey 公钥
-     * @param plainText 明文
-     * @param signed    签名
-     */
-    public static boolean verifySign(PublicKey publicKey, String plainText, byte[] signed) {
-
-        MessageDigest messageDigest;
-        boolean SignedSuccess = false;
+    public static String rsaSign(String content, String privateKey, String charset) throws Exception {
         try {
-            messageDigest = MessageDigest.getInstance(ENCODE_ALGORITHM);
-            messageDigest.update(plainText.getBytes());
-            byte[] outputDigest_verify = messageDigest.digest();
-            Signature verifySign = Signature.getInstance(SIGNATURE_ALGORITHM);
-            verifySign.initVerify(publicKey);
-            verifySign.update(outputDigest_verify);
-            SignedSuccess = verifySign.verify(signed);
-            LOGGER.info("验证成功？---{}", SignedSuccess);
+            PrivateKey priKey = getPrivateKeyFromPKCS8(KEY_ALGORITHM, new ByteArrayInputStream(privateKey.getBytes()));
+            Signature signature = Signature.getInstance(ENCODE_ALGORITHM);
+            signature.initSign(priKey);
+            if (StrUtil.isEmpty(charset)) {
+                signature.update(content.getBytes());
+            } else {
+                signature.update(content.getBytes(charset));
+            }
 
-        } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
-            LOGGER.info("验证失败？---{}", e.getMessage());
+            byte[] signed = signature.sign();
+            return new String(Base64Utils.encode(signed));
+        } catch (InvalidKeySpecException var6) {
+            throw new Exception("RSA私钥格式不正确，请检查是否正确配置了PKCS8格式的私钥", var6);
+        } catch (Exception var7) {
+            throw new Exception("RSAcontent = " + content + "; charset = " + charset, var7);
         }
-        return SignedSuccess;
     }
 
-    /**
-     * 验签
-     *
-     * @param publicKey 公钥
-     * @param plainText 明文
-     * @param signed    签名
-     */
-    public static boolean verifySign(String publicKey, String plainText, String signed) {
-
-        MessageDigest messageDigest;
-        boolean SignedSuccess = false;
-        try {
-            messageDigest = MessageDigest.getInstance(ENCODE_ALGORITHM);
-            messageDigest.update(plainText.getBytes());
-            byte[] outputDigest_verify = messageDigest.digest();
-            Signature verifySign = Signature.getInstance(SIGNATURE_ALGORITHM);
-            PublicKey key = getPublicKey(publicKey);
-            verifySign.initVerify(key);
-            verifySign.update(outputDigest_verify);
-            SignedSuccess = verifySign.verify(signed.getBytes());
-            LOGGER.info("验证成功？---{}", SignedSuccess);
-
-        } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
-            LOGGER.info("验证失败？---{}",e.getMessage());
+    public static boolean rsaCheck(String content, String sign, String publicKey, String charset, String signType) throws Exception {
+        if ("RSA".equals(signType)) {
+            return rsaCheckContent(content, sign, publicKey, charset);
+        } else if ("RSA2".equals(signType)) {
+            return rsa256CheckContent(content, sign, publicKey, charset);
+        } else {
+            throw new Exception("Sign Type is Not Support : signType=" + signType);
         }
-        return SignedSuccess;
     }
 
-    /**
-     * bytes[]换成16进制字符串
-     *
-     * @param src
-     * @return
-     */
-    public static String bytesToHexString(byte[] src) {
-        StringBuilder stringBuilder = new StringBuilder();
-        if (src == null || src.length <= 0) {
+    public static boolean rsa256CheckContent(String content, String sign, String publicKey, String charset) throws Exception {
+        try {
+            PublicKey pubKey = getPublicKeyFromX509(KEY_ALGORITHM, new ByteArrayInputStream(publicKey.getBytes()));
+            Signature signature = Signature.getInstance(SIGNATURE_ALGORITHM);
+            signature.initVerify(pubKey);
+            if (StrUtil.isEmpty(charset)) {
+                signature.update(content.getBytes());
+            } else {
+                signature.update(content.getBytes(charset));
+            }
+
+            return signature.verify(Base64Utils.decode(sign.getBytes()));
+        } catch (Exception var6) {
+            throw new Exception("RSAcontent = " + content + ",sign=" + sign + ",charset = " + charset, var6);
+        }
+    }
+
+    public static boolean rsaCheckContent(String content, String sign, String publicKey, String charset) throws Exception {
+        try {
+            PublicKey pubKey = getPublicKeyFromX509(KEY_ALGORITHM, new ByteArrayInputStream(publicKey.getBytes()));
+            Signature signature = Signature.getInstance(ENCODE_ALGORITHM);
+            signature.initVerify(pubKey);
+            if (StrUtil.isEmpty(charset)) {
+                signature.update(content.getBytes());
+            } else {
+                signature.update(content.getBytes(charset));
+            }
+            return signature.verify(Base64Utils.decode(sign.getBytes()));
+        } catch (Exception var6) {
+            throw new Exception("RSAcontent = " + content + ",sign=" + sign + ",charset = " + charset, var6);
+        }
+    }
+
+    public static PublicKey getPublicKeyFromX509(String algorithm, InputStream ins) throws Exception {
+        KeyFactory keyFactory = KeyFactory.getInstance(algorithm);
+        StringWriter writer = new StringWriter();
+        StreamUtil.io(new InputStreamReader(ins), writer);
+        byte[] encodedKey = writer.toString().getBytes();
+        encodedKey = Base64Utils.decode(encodedKey);
+        return keyFactory.generatePublic(new X509EncodedKeySpec(encodedKey));
+    }
+
+    public static PrivateKey getPrivateKeyFromPKCS8(String algorithm, InputStream ins) throws Exception {
+        if (ins != null && !StrUtil.isEmpty(algorithm)) {
+            KeyFactory keyFactory = KeyFactory.getInstance(algorithm);
+            byte[] encodedKey = StreamUtil.readText(ins).getBytes();
+            encodedKey = Base64Utils.decode(encodedKey);
+            return keyFactory.generatePrivate(new PKCS8EncodedKeySpec(encodedKey));
+        } else {
             return null;
         }
-        for (int i = 0; i < src.length; i++) {
-            int v = src[i] & 0xFF;
-            String hv = Integer.toHexString(v);
-            if (hv.length() < 2) {
-                stringBuilder.append(0);
-            }
-            stringBuilder.append(hv);
-        }
-        return stringBuilder.toString();
-    }
-
-    /**
-     * 得到私钥
-     *
-     * @param key 密钥字符串（经过base64编码）
-     * @throws Exception
-     */
-    public static PrivateKey getPrivateKey(String key) throws Exception {
-
-        byte[] keyBytes = Base64.decode(key);
-
-        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
-
-        KeyFactory keyFactory = KeyFactory.getInstance(ENCODE_ALGORITHM);
-
-        PrivateKey privateKey = keyFactory.generatePrivate(keySpec);
-
-        return privateKey;
-    }
-
-    /**
-     * 还原公钥
-     *
-     * @param publicKey
-     * @return
-     */
-    public static PublicKey getPublicKey(String publicKey) {
-        byte[] keyBytes = Base64.decode(publicKey);
-        X509EncodedKeySpec x509EncodedKeySpec = new X509EncodedKeySpec(keyBytes);
-        try {
-            KeyFactory factory = KeyFactory.getInstance(ENCODE_ALGORITHM);
-            PublicKey key = factory.generatePublic(x509EncodedKeySpec);
-            return key;
-        } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
-            LOGGER.info("获取public key error :{}", e.getMessage());
-        }
-        return null;
     }
 
 }

@@ -5,6 +5,12 @@ public class PayObject extends BaseEntity {
     //交易号
     private String tradeNo;
 
+    //外部交易号
+    private String outTradeNo;
+
+    private String refundNo;
+
+    private String refundPrice;
     //买家ID
     private String sellerId;
 
@@ -45,8 +51,42 @@ public class PayObject extends BaseEntity {
     //交易类型
     private TradeTypeEnum tradeType;
 
+    private String ipAddr;
+
+    public String getRefundPrice() {
+        return refundPrice;
+    }
+
+    public void setRefundPrice(String refundPrice) {
+        this.refundPrice = refundPrice;
+    }
+
+    public String getIpAddr() {
+        return ipAddr;
+    }
+
+    public void setIpAddr(String ipAddr) {
+        this.ipAddr = ipAddr;
+    }
+
     public String getTradeNo() {
         return tradeNo;
+    }
+
+    public String getOutTradeNo() {
+        return outTradeNo;
+    }
+
+    public void setOutTradeNo(String outTradeNo) {
+        this.outTradeNo = outTradeNo;
+    }
+
+    public String getRefundNo() {
+        return refundNo;
+    }
+
+    public void setRefundNo(String refundNo) {
+        this.refundNo = refundNo;
     }
 
     public void setTradeNo(String tradeNo) {

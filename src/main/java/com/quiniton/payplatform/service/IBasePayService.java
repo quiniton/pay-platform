@@ -36,4 +36,10 @@ public interface IBasePayService<T> {
      */
     void cancel(T t);
 
+    /**
+     * 统一收单交易查询
+     * @param t
+     */
+    void payQuery(T t);
+
 }

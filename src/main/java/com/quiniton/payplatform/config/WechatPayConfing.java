@@ -21,6 +21,9 @@ public class WechatPayConfing {
     @Value("${wechat-pay.sign_type}")
     private String signType;
 
+    @Value("${wechat-pay.notify_url}")
+    private String notifyUrl;
+
     public String getAppId() {
         return appId;
     }
@@ -39,5 +42,9 @@ public class WechatPayConfing {
 
     public String getSignType() {
         return signType;
+    }
+
+    public String getNotifyUrl() {
+        return notifyUrl;
     }
 }
